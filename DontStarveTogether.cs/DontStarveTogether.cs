@@ -52,7 +52,7 @@ namespace WindowsGSM.Plugins
         private int CavesPort => int.TryParse(_serverData.ServerPort, out int p) ? p - 1 : 10998;
 
         // Auto-generate server configuration files on first install
-        public async void CreateServerCFG()
+        public void CreateServerCFG()
         {
             string serverFiles = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID);
             string clusterName = string.IsNullOrWhiteSpace(_serverData.ServerMap) ? Defaultmap : _serverData.ServerMap;
@@ -88,13 +88,13 @@ master_ip = 127.0.0.1
 master_port = 10888
 cluster_key = defaultSuperSecret
 ";
-            await File.WriteAllTextAsync(Path.Combine(clusterPath, "cluster.ini"), clusterIni);
+            File.WriteAllText(Path.Combine(clusterPath, "cluster.ini"), clusterIni);
 
             // cluster_token.txt — placeholder; user MUST replace with their Klei token
             string tokenPath = Path.Combine(clusterPath, "cluster_token.txt");
             if (!File.Exists(tokenPath))
             {
-                await File.WriteAllTextAsync(tokenPath,
+                File.WriteAllText(tokenPath,
                     "PASTE_YOUR_CLUSTER_TOKEN_HERE\n" +
                     "Get your token at: https://accounts.klei.com/account/game/servers?game=DontStarveTogether");
             }
@@ -110,7 +110,7 @@ is_master = true
 master_server_port = {_serverData.ServerQueryPort ?? QueryPort}
 authentication_port = 8766
 ";
-            await File.WriteAllTextAsync(Path.Combine(masterPath, "server.ini"), masterServerIni);
+            File.WriteAllText(Path.Combine(masterPath, "server.ini"), masterServerIni);
 
             // Caves shard server.ini
             string cavesServerIni = $@"[NETWORK]
@@ -124,7 +124,7 @@ is_secondary = true
 master_server_port = 27017
 authentication_port = 8767
 ";
-            await File.WriteAllTextAsync(Path.Combine(cavesPath, "server.ini"), cavesServerIni);
+            File.WriteAllText(Path.Combine(cavesPath, "server.ini"), cavesServerIni);
 
             // worldgenoverride.lua for Caves shard (required to mark it as caves)
             string cavesWorldgen = @"return {
@@ -132,12 +132,12 @@ authentication_port = 8767
     preset = ""DST_CAVE"",
 }
 ";
-            await File.WriteAllTextAsync(Path.Combine(cavesPath, "worldgenoverride.lua"), cavesWorldgen);
+            File.WriteAllText(Path.Combine(cavesPath, "worldgenoverride.lua"), cavesWorldgen);
 
             // modoverrides.lua stubs
             string modOverrides = "return {}\n";
-            await File.WriteAllTextAsync(Path.Combine(masterPath, "modoverrides.lua"), modOverrides);
-            await File.WriteAllTextAsync(Path.Combine(cavesPath, "modoverrides.lua"), modOverrides);
+            File.WriteAllText(Path.Combine(masterPath, "modoverrides.lua"), modOverrides);
+            File.WriteAllText(Path.Combine(cavesPath, "modoverrides.lua"), modOverrides);
         }
 
         // Start both shards; returns the master shard process to WindowsGSM
@@ -169,7 +169,7 @@ authentication_port = 8767
                 return null;
             }
 
-            string tokenContent = await File.ReadAllTextAsync(tokenPath);
+            string tokenContent = File.ReadAllText(tokenPath);
             if (tokenContent.Contains("PASTE_YOUR_CLUSTER_TOKEN_HERE"))
             {
                 Error = "cluster_token.txt contains placeholder. Replace it with your Klei cluster token from https://accounts.klei.com";
