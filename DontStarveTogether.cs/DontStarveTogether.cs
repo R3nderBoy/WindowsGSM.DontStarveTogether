@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 using WindowsGSM.Functions;
 using WindowsGSM.GameServer.Engine;
 using WindowsGSM.GameServer.Query;
+using WindowsGSM.Installer;
 
 namespace WindowsGSM.Plugins
 {
     public class DontStarveTogether : SteamCMDAgent
     {
-        // Plugin metadata
         public Plugin Plugin = new Plugin
         {
             name = "WindowsGSM.DontStarveTogether",
@@ -23,48 +23,41 @@ namespace WindowsGSM.Plugins
             color = "#b07d48"
         };
 
-        // Tracks the caves shard process per server instance
+        private readonly ServerConfig _serverData;
         private static readonly Dictionary<string, Process> _cavesProcesses = new Dictionary<string, Process>();
 
-        public DontStarveTogether(ServerConfig serverData) : base(serverData) => base.serverData = _serverData = serverData;
-        private readonly ServerConfig _serverData;
+        public new string Error;
+        public new string Notice;
 
-        // SteamCMD settings
-        public override bool loginAnonymous => true;
-        public override string AppId => "343050";
-
-        // Server fixed properties
-        // Uses 64-bit executable for better performance on modern systems
-        public override string StartPath => @"bin64/dontstarve_dedicated_server_nullrenderer_x64.exe";
         public string FullName = "Don't Starve Together";
+        public new string StartPath = @"bin64\dontstarve_dedicated_server_nullrenderer_x64.exe";
         public bool AllowsEmbedConsole = true;
         public int PortIncrements = 3;
         public object QueryMethod = new A2S();
 
-        // Server defaults
-        public string Port = "10999";       // Master shard port
-        public string QueryPort = "27016";  // Steam master server port
+        public string Port = "10999";
+        public string QueryPort = "27016";
         public string Defaultmap = "MyDediServer";
         public string Maxplayers = "6";
         public string Additional = "";
 
-        // Derived port for caves shard (master port - 1)
+        public new string AppId = "343050";
+
+        public DontStarveTogether(ServerConfig serverData) : base(serverData) => base.serverData = _serverData = serverData;
+
         private int CavesPort => int.TryParse(_serverData.ServerPort, out int p) ? p - 1 : 10998;
 
-        // Auto-generate server configuration files on first install
         public void CreateServerCFG()
         {
             string serverFiles = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID);
             string clusterName = string.IsNullOrWhiteSpace(_serverData.ServerMap) ? Defaultmap : _serverData.ServerMap;
             string clusterPath = Path.Combine(serverFiles, "bin64", "serverdatafolder", clusterName);
-
             string masterPath = Path.Combine(clusterPath, "Master");
             string cavesPath = Path.Combine(clusterPath, "Caves");
 
             Directory.CreateDirectory(masterPath);
             Directory.CreateDirectory(cavesPath);
 
-            // cluster.ini — shared cluster settings
             string clusterIni = $@"[GAMEPLAY]
 max_players = {_serverData.ServerMaxPlayer ?? Maxplayers}
 pvp = false
@@ -90,7 +83,6 @@ cluster_key = defaultSuperSecret
 ";
             File.WriteAllText(Path.Combine(clusterPath, "cluster.ini"), clusterIni);
 
-            // cluster_token.txt — placeholder; user MUST replace with their Klei token
             string tokenPath = Path.Combine(clusterPath, "cluster_token.txt");
             if (!File.Exists(tokenPath))
             {
@@ -99,7 +91,6 @@ cluster_key = defaultSuperSecret
                     "Get your token at: https://accounts.klei.com/account/game/servers?game=DontStarveTogether");
             }
 
-            // Master shard server.ini (Overworld)
             string masterServerIni = $@"[NETWORK]
 server_port = {_serverData.ServerPort ?? Port}
 
@@ -112,7 +103,6 @@ authentication_port = 8766
 ";
             File.WriteAllText(Path.Combine(masterPath, "server.ini"), masterServerIni);
 
-            // Caves shard server.ini
             string cavesServerIni = $@"[NETWORK]
 server_port = {CavesPort}
 
@@ -126,21 +116,14 @@ authentication_port = 8767
 ";
             File.WriteAllText(Path.Combine(cavesPath, "server.ini"), cavesServerIni);
 
-            // worldgenoverride.lua for Caves shard (required to mark it as caves)
-            string cavesWorldgen = @"return {
-    override_enabled = true,
-    preset = ""DST_CAVE"",
-}
-";
-            File.WriteAllText(Path.Combine(cavesPath, "worldgenoverride.lua"), cavesWorldgen);
+            File.WriteAllText(Path.Combine(cavesPath, "worldgenoverride.lua"),
+                "return {\n    override_enabled = true,\n    preset = \"DST_CAVE\",\n}\n");
 
-            // modoverrides.lua stubs
             string modOverrides = "return {}\n";
             File.WriteAllText(Path.Combine(masterPath, "modoverrides.lua"), modOverrides);
             File.WriteAllText(Path.Combine(cavesPath, "modoverrides.lua"), modOverrides);
         }
 
-        // Start both shards; returns the master shard process to WindowsGSM
         public async Task<Process> Start()
         {
             string serverFiles = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID);
@@ -161,7 +144,6 @@ authentication_port = 8767
 
             string clusterName = string.IsNullOrWhiteSpace(_serverData.ServerMap) ? Defaultmap : _serverData.ServerMap;
 
-            // Check cluster token
             string tokenPath = Path.Combine(serverFiles, "bin64", "serverdatafolder", clusterName, "cluster_token.txt");
             if (!File.Exists(tokenPath))
             {
@@ -176,7 +158,6 @@ authentication_port = 8767
                 return null;
             }
 
-            // Start caves shard first (master will connect to it)
             var cavesProcess = await LaunchShard(exePath, bin64Path, clusterName, "Caves", CavesPort.ToString(), false);
             if (cavesProcess != null)
             {
@@ -184,14 +165,11 @@ authentication_port = 8767
                     _cavesProcesses[_serverData.ServerID] = cavesProcess;
             }
 
-            // Brief delay so caves shard can initialize its shard port before master connects
             await Task.Delay(3000);
 
-            // Start master shard (returned to WindowsGSM as the primary tracked process)
             var masterProcess = await LaunchShard(exePath, bin64Path, clusterName, "Master",
                 _serverData.ServerPort ?? Port, true);
 
-            // Log startup commands for troubleshooting
             string logPath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, "startupCommandsUsed.log");
             File.WriteAllText(logPath,
                 $"Master: -persistent_storage_root \"{bin64Path}\" -conf_dir serverdatafolder -cluster \"{clusterName}\" -shard Master -port {_serverData.ServerPort ?? Port} -steam_master_server_port {_serverData.ServerQueryPort ?? QueryPort} -players {_serverData.ServerMaxPlayer ?? Maxplayers}\n" +
@@ -200,10 +178,8 @@ authentication_port = 8767
             return masterProcess;
         }
 
-        // Stop both shards gracefully
         public async Task Stop(Process p)
         {
-            // Stop caves shard
             lock (_cavesProcesses)
             {
                 if (_cavesProcesses.TryGetValue(_serverData.ServerID, out Process caves) && caves != null && !caves.HasExited)
@@ -213,11 +189,49 @@ authentication_port = 8767
                 }
             }
 
-            // Stop master shard
             await Task.Run(() => ShutdownProcess(p));
         }
 
-        // Helper: send graceful shutdown command to a shard process
+        public new async Task<Process> Install()
+        {
+            var steamCMD = new Installer.SteamCMD();
+            Process p = await steamCMD.Install(_serverData.ServerID, string.Empty, AppId);
+            Error = steamCMD.Error;
+            return p;
+        }
+
+        public new async Task<Process> Update(bool validate = false, string custom = null)
+        {
+            var (p, error) = await Installer.SteamCMD.UpdateEx(_serverData.ServerID, AppId, validate, custom: custom);
+            Error = error;
+            return p;
+        }
+
+        public new bool IsInstallValid()
+        {
+            string exePath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, StartPath);
+            return File.Exists(exePath);
+        }
+
+        public new bool IsImportValid(string path)
+        {
+            string exePath = Path.Combine(path, StartPath);
+            Error = $"Invalid Path! Fail to find {StartPath}";
+            return File.Exists(exePath);
+        }
+
+        public new string GetLocalBuild()
+        {
+            var steamCMD = new Installer.SteamCMD();
+            return steamCMD.GetLocalBuild(_serverData.ServerID, AppId);
+        }
+
+        public new async Task<string> GetRemoteBuild()
+        {
+            var steamCMD = new Installer.SteamCMD();
+            return await steamCMD.GetRemoteBuild(AppId);
+        }
+
         private static void ShutdownProcess(Process p)
         {
             try
@@ -229,10 +243,9 @@ authentication_port = 8767
                 else
                     ServerConsole.SendMessageToMainWindow(p.MainWindowHandle, "c_shutdown(true)");
             }
-            catch { /* process may have already exited */ }
+            catch { }
         }
 
-        // Helper: launch a single shard and return its Process
         private async Task<Process> LaunchShard(string exePath, string binPath, string clusterName,
             string shardName, string port, bool isMaster)
         {
@@ -271,7 +284,7 @@ authentication_port = 8767
                 p.StartInfo.RedirectStandardOutput = true;
                 p.StartInfo.RedirectStandardError = true;
 
-                var serverConsole = new ServerConsole(_serverData.ServerID);
+                var serverConsole = new Functions.ServerConsole(_serverData.ServerID);
                 p.OutputDataReceived += serverConsole.AddOutput;
                 p.ErrorDataReceived += serverConsole.AddOutput;
 
