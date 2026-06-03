@@ -48,14 +48,16 @@ The server will refuse to start if the placeholder is still present.
 
 ## Port Usage
 
-| Port  | Purpose                         |
-|-------|---------------------------------|
-| 10999 | Master shard (Overworld) — UDP  |
-| 10998 | Caves shard — UDP               |
-| 27016 | Steam master server port — UDP  |
-| 10888 | Internal shard-to-shard — UDP   |
+| Port  | Purpose                        | Forward? |
+|-------|-------------------------------|----------|
+| 10999 | Master shard (Overworld) — UDP | ✅ Yes   |
+| 10998 | Caves shard — UDP              | ✅ Yes   |
+| 27016 | Steam master server port — UDP | ✅ Yes   |
+| 10888 | Internal shard-to-shard — UDP  | ❌ No    |
 
-All ports are configurable via the generated `server.ini` and `cluster.ini` files.
+Port 10888 is bound to `127.0.0.1` (localhost) and is only used for communication between the two shards on the same machine — it does not need to be forwarded or opened in your firewall.
+
+All other ports are configurable via the generated `server.ini` and `cluster.ini` files.
 
 ## Configuration Files
 
