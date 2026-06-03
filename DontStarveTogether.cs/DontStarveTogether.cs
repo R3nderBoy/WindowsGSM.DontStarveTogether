@@ -10,7 +10,7 @@ using WindowsGSM.GameServer.Query;
 
 namespace WindowsGSM.Plugins
 {
-    public class DST : SteamCMDAgent
+    public class DontStarveTogether : SteamCMDAgent
     {
         // Plugin metadata
         public Plugin Plugin = new Plugin
@@ -26,7 +26,7 @@ namespace WindowsGSM.Plugins
         // Tracks the caves shard process per server instance
         private static readonly Dictionary<string, Process> _cavesProcesses = new Dictionary<string, Process>();
 
-        public DST(ServerConfig serverData) : base(serverData) => base.serverData = _serverData = serverData;
+        public DontStarveTogether(ServerConfig serverData) : base(serverData) => base.serverData = _serverData = serverData;
         private readonly ServerConfig _serverData;
 
         // SteamCMD settings
@@ -56,7 +56,6 @@ namespace WindowsGSM.Plugins
         {
             string serverFiles = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID);
             string clusterName = string.IsNullOrWhiteSpace(_serverData.ServerMap) ? Defaultmap : _serverData.ServerMap;
-            string storagePath = Path.Combine(serverFiles, "bin64").Replace(@"\", "/");
             string clusterPath = Path.Combine(serverFiles, "bin64", "serverdatafolder", clusterName);
 
             string masterPath = Path.Combine(clusterPath, "Master");
