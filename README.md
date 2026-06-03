@@ -17,16 +17,18 @@ A [WindowsGSM](https://windowsgsm.com/) plugin for hosting a **Don't Starve Toge
 
 ## Installation
 
-1. Download or clone this repository.
-2. Copy the `DST.cs/` folder into your WindowsGSM `plugins/` directory:
+1. Download the `DontStarveTogether.cs` folder from this repository (or clone it).
+2. Copy the entire `DontStarveTogether.cs/` folder into your WindowsGSM `plugins/` directory:
    ```
-   WindowsGSM/plugins/DST.cs/
-   ├── DST.cs
-   ├── DST.png
+   WindowsGSM/plugins/DontStarveTogether.cs/
+   ├── DontStarveTogether.cs
+   ├── DontStarveTogether.png
    └── author.png
    ```
-3. Restart WindowsGSM — the plugin will appear in the game server list.
+3. In WindowsGSM click **Plugins → Reload Plugins** — the plugin will appear in the game server list.
 4. Install a new server instance using the plugin.
+
+> **Note:** The WindowsGSM "Import Plugin" URL feature does not work reliably with GitHub archive URLs. Manual installation (above) is recommended.
 
 ## Getting Your Cluster Token
 
